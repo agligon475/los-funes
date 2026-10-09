@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { RefreshCw, ShieldAlert, Share2, ShieldCheck } from 'lucide-react';
+import { RefreshCw, ShieldAlert, Share2, ShieldCheck, User } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import UserProfileModal from '../profile/UserProfileModal';
+import LoginModal from '../profile/LoginModal';
 
 export default function Header() {
-  const { syncing, authRestricted, refreshAll, activeTab, setActiveTab } = useApp();
+  const { syncing, authRestricted, refreshAll, activeTab, setActiveTab, currentUser } = useApp();
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const shareWhatsApp = () => {
     const origin = window.location.origin;
@@ -38,6 +42,36 @@ export default function Header() {
           </div>
 
           <div className="flex items-center space-x-1.5">
+            {/* User Profile / Login Avatar Button */}
+            {currentUser ? (
+              <button
+                onClick={() => setShowProfileModal(true)}
+                title={`Perfil de ${currentUser.nombre}`}
+                className="relative w-9 h-9 rounded-xl border border-amber-500/40 p-0.5 bg-slate-800 hover:border-amber-400 active:scale-95 transition-all shadow-glow-gold"
+              >
+                {currentUser.foto ? (
+                  <img
+                    src={currentUser.foto}
+                    alt={currentUser.nombre}
+                    className="w-full h-full rounded-[10px] object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-[10px] bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-slate-950 font-black text-xs">
+                    {currentUser.nombre.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border border-slate-950 rounded-full" />
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowLoginModal(true)}
+                title="Iniciar sesión / Mi Perfil"
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 active:scale-95 transition-all"
+              >
+                <User className="w-4 h-4" />
+              </button>
+            )}
+
             <button
               onClick={shareWhatsApp}
               title="Compartir link por WhatsApp"
@@ -110,6 +144,19 @@ export default function Header() {
           </div>
         </div>
       )}
+
+      {/* Modal de Perfil de Usuario */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
+
+      {/* Modal de Login de Jugadores Registrados */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onOpenProfile={() => setShowProfileModal(true)}
+      />
     </>
   );
 }

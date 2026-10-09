@@ -141,6 +141,35 @@ function doPost(e) {
       return jsonResponse({ success: true, message: 'Fila agregada con éxito.', data: rowData });
     }
 
+    // ACCIÓN: Actualizar fila / Perfil de Jugador (update_row o update_jugador)
+    if (action === 'update_row' || action === 'update_jugador') {
+      var idTarget = String(body.id);
+      var updateData = body.data || {};
+      var allRows = sheet.getDataRange().getValues();
+      var headersList = allRows[0].map(function(h) { return String(h).trim().toLowerCase(); });
+
+      var targetIdCol = headersList.indexOf('id');
+      if (targetIdCol === -1) targetIdCol = headersList.indexOf('id_jugador');
+
+      if (targetIdCol === -1) {
+        return jsonResponse({ error: true, message: 'No se encontró columna identificadora de ID.' });
+      }
+
+      for (var rIdx = 1; rIdx < allRows.length; rIdx++) {
+        if (String(allRows[rIdx][targetIdCol]) === idTarget) {
+          for (var field in updateData) {
+            var colIndex = headersList.indexOf(field.toLowerCase());
+            if (colIndex !== -1) {
+              sheet.getRange(rIdx + 1, colIndex + 1).setValue(updateData[field]);
+            }
+          }
+          return jsonResponse({ success: true, message: 'Fila actualizada.', id: idTarget, data: updateData });
+        }
+      }
+
+      return jsonResponse({ error: true, message: 'ID no encontrado para actualizar.' });
+    }
+
     // ACCIÓN: Eliminar fila (delete_row) por ID (SuperAdmin)
     if (action === 'delete_row') {
       var idToDelete = String(body.id);

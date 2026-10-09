@@ -86,9 +86,12 @@ function normalizeSheetData(sheetName, rawArray) {
     return rawArray.map((row, index) => ({
       id: row.id || row.ID || row.id_jugador || `JUG-${index + 1}`,
       nombre: row.nombre || row.Nombre || row.name || 'Sin Nombre',
-      alias: row.alias || row.Alias || '',
+      alias: row.alias || row.Alias || row.apodo || '',
+      apodo: row.apodo || row.alias || row.Alias || '',
+      email: row.email || row.Email || row.mail || '',
       telefono: row.telefono || row.Telefono || '',
       equipo: row.equipo || row.Equipo || '',
+      foto: row.foto || row.Foto || row.avatar || '',
       presente: row.presente === true || row.presente === 'true' || row.presente === 'TRUE' || row.asistio === true || row.asistio === 'TRUE',
       partidos_jugados: Number(row.partidos_jugados || row.pj || row.PJ || 0),
       partidos_ganados: Number(row.partidos_ganados || row.pg || row.PG || 0),
@@ -308,9 +311,12 @@ export async function addJugador(jugador) {
   const newPlayer = {
     id: jugador.id || `JUG-${Date.now().toString().slice(-4)}`,
     nombre: jugador.nombre,
-    alias: jugador.alias || '',
+    alias: jugador.alias || jugador.apodo || '',
+    apodo: jugador.apodo || jugador.alias || '',
+    email: jugador.email || '',
     telefono: jugador.telefono || '',
     equipo: jugador.equipo || '',
+    foto: jugador.foto || '',
     presente: jugador.presente ?? true,
     fecha_inscripcion: jugador.fecha_inscripcion || new Date().toLocaleDateString('es-AR'),
     partidos_jugados: 0,
@@ -340,6 +346,25 @@ export async function addJugador(jugador) {
 
   const res = await postApi(payload);
   return { success: res.success, player: newPlayer, list: updated };
+}
+
+/**
+ * Actualizar perfil de jugador (apodo, foto, equipo, email)
+ */
+export async function updateJugador(id, updateData) {
+  const cached = getCache('jugadores', DEFAULT_JUGADORES);
+  const updated = cached.map(j => (j.id === id ? { ...j, ...updateData } : j));
+  setCache('jugadores', updated);
+
+  const payload = {
+    action: 'update_row',
+    sheet: 'Jugadores',
+    id,
+    data: updateData
+  };
+
+  const res = await postApi(payload);
+  return { success: res.success, list: updated };
 }
 
 /**

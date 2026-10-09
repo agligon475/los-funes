@@ -14,9 +14,15 @@ import {
   Calendar,
   ShieldCheck,
   Flame,
-  ArrowRight
+  ArrowRight,
+  LogIn,
+  Camera,
+  Mail,
+  User
 } from 'lucide-react';
 import { requestNotificationPermission } from '../../services/notifications';
+import UserProfileModal from '../profile/UserProfileModal';
+import LoginModal from '../profile/LoginModal';
 
 export default function InscripcionView() {
   const {
@@ -35,11 +41,14 @@ export default function InscripcionView() {
   // Form states
   const [nombre, setNombre] = useState('');
   const [alias, setAlias] = useState('');
+  const [email, setEmail] = useState('');
   const [telefono, setTelefono] = useState('');
   const [tieneEquipo, setTieneEquipo] = useState(false);
   const [selectedEquipo, setSelectedEquipo] = useState('');
   const [nuevoEquipoNombre, setNuevoEquipoNombre] = useState('');
   const [loadingForm, setLoadingForm] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
   );
@@ -61,7 +70,10 @@ export default function InscripcionView() {
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
-    if (!nombre.trim()) return;
+    if (!nombre.trim() || !email.trim()) {
+      showToast('Por favor completá tu nombre y correo electrónico', 'warning');
+      return;
+    }
 
     setLoadingForm(true);
 
@@ -81,6 +93,8 @@ export default function InscripcionView() {
     const newPlayerData = {
       nombre: nombre.trim(),
       alias: alias.trim(),
+      apodo: alias.trim(),
+      email: email.trim().toLowerCase(),
       telefono: telefono.trim(),
       equipo: finalTeamName,
       presente: true
@@ -99,6 +113,7 @@ export default function InscripcionView() {
       );
       setNombre('');
       setAlias('');
+      setEmail('');
       setTelefono('');
       setTieneEquipo(false);
       setSelectedEquipo('');
@@ -174,34 +189,59 @@ export default function InscripcionView() {
         </div>
 
         {currentUser ? (
-          <div className="bg-slate-950 p-3 rounded-xl border border-emerald-500/30 flex items-center justify-between">
-            <div>
-              <div className="flex items-center space-x-1.5">
-                <span className="font-black text-white text-sm">{currentUser.nombre}</span>
-                {currentUser.alias && (
-                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 font-bold">
-                    {currentUser.alias}
-                  </span>
+          <div className="bg-slate-950 p-3 rounded-2xl border border-amber-500/30 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-500/60 bg-slate-900 shrink-0 flex items-center justify-center">
+                {currentUser.foto ? (
+                  <img src={currentUser.foto} alt={currentUser.nombre} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-slate-950 font-black text-lg">
+                    {currentUser.nombre.charAt(0).toUpperCase()}
+                  </div>
                 )}
               </div>
-              <p className="text-[11px] text-emerald-400 font-semibold mt-0.5 flex items-center space-x-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Identificado para alertas automáticas de juego</span>
-              </p>
+              <div className="min-w-0">
+                <div className="flex items-center space-x-1.5">
+                  <span className="font-black text-white text-sm truncate">{currentUser.nombre}</span>
+                  {(currentUser.apodo || currentUser.alias) && (
+                    <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 font-bold truncate">
+                      "{currentUser.apodo || currentUser.alias}"
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400 truncate">
+                  {currentUser.equipo ? `Equipo: ${currentUser.equipo}` : 'Jugador Libre'}
+                </p>
+              </div>
             </div>
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs shrink-0 active:scale-95 transition-all flex items-center space-x-1"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span>Mi Perfil</span>
+            </button>
           </div>
         ) : (
-          <div className="space-y-2">
-            <label className="text-[11px] text-slate-400 block">
-              Si ya estás en la lista, seleccionalo para recibir alertas:
-            </label>
+          <div className="space-y-2.5">
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="w-full py-2.5 bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-black flex items-center justify-center space-x-2 transition-all active:scale-95"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>¿Ya estás inscripto? Ingresá con tu correo</span>
+            </button>
+            <div className="relative flex items-center justify-center">
+              <div className="border-t border-slate-800 w-full" />
+              <span className="bg-slate-900 px-2 text-[10px] text-slate-500 absolute">o elegí tu nombre</span>
+            </div>
             <select
               onChange={(e) => {
                 const found = jugadores.find((j) => j.id === e.target.value);
                 if (found) setCurrentUser(found);
               }}
               defaultValue=""
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-amber-500"
             >
               <option value="" disabled>
                 -- Seleccionar mi nombre de la lista --
@@ -341,6 +381,26 @@ export default function InscripcionView() {
             />
           </div>
 
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              Correo Electrónico * <span className="text-amber-400 font-normal">(Obligatorio para tu perfil y foto)</span>
+            </label>
+            <div className="relative">
+              <input
+                type="email"
+                required
+                placeholder="ejemplo@correo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
+              />
+              <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1">
+              Te permitirá acceder a tu perfil, cambiar tu foto y gestionar tu equipo.
+            </p>
+          </div>
+
           {/* Team Option (Tríos de 3) */}
           <div className="space-y-2.5 pt-2 border-t border-slate-800">
             <label className="flex items-center space-x-2.5 cursor-pointer">
@@ -397,13 +457,27 @@ export default function InscripcionView() {
 
           <button
             type="submit"
-            disabled={loadingForm || !nombre.trim()}
+            disabled={loadingForm || !nombre.trim() || !email.trim()}
             className="w-full min-h-[50px] bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 disabled:opacity-40 text-slate-950 font-black rounded-xl text-sm shadow-glow-gold flex items-center justify-center space-x-2 active:scale-95 transition-all pt-1"
           >
             <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
             <span>{loadingForm ? 'Guardando en Planilla...' : '¡Anotarme a la Juntada de Hoy!'}</span>
           </button>
         </form>
+
+        {/* Link to login if already registered */}
+        <div className="pt-2 border-t border-slate-800 text-center">
+          <p className="text-xs text-slate-400">
+            ¿Ya te habías registrado antes?{' '}
+            <button
+              type="button"
+              onClick={() => setShowLoginModal(true)}
+              className="text-amber-400 hover:text-amber-300 font-bold underline ml-1"
+            >
+              Iniciar sesión con tu correo
+            </button>
+          </p>
+        </div>
       </div>
 
       {/* Quick Navigation to Tournament & Rankings */}
@@ -432,6 +506,19 @@ export default function InscripcionView() {
           <p className="text-[10px] text-slate-400">Estadísticas y torneos pasados</p>
         </button>
       </div>
+
+      {/* Profile Modal */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onOpenProfile={() => setShowProfileModal(true)}
+      />
     </div>
   );
 }

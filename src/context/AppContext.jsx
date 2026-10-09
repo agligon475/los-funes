@@ -4,6 +4,7 @@ import {
   toggleJugadorPresente,
   savePartido,
   addJugador,
+  updateJugador,
   addEquipo,
   DEFAULT_JUGADORES,
   DEFAULT_EQUIPOS,
@@ -107,7 +108,22 @@ export function AppProvider({ children }) {
         getSheet('Partidos')
       ]);
 
-      if (Array.isArray(jugadoresRes.data)) setJugadores(jugadoresRes.data);
+      if (Array.isArray(jugadoresRes.data)) {
+        setJugadores(jugadoresRes.data);
+        setCurrentUser(curr => {
+          if (!curr) return null;
+          const fresh = jugadoresRes.data.find(j => 
+            j.id === curr.id || 
+            (curr.email && j.email && j.email.toLowerCase() === curr.email.toLowerCase())
+          );
+          if (fresh) {
+            const merged = { ...curr, ...fresh };
+            try { localStorage.setItem('funes_current_user', JSON.stringify(merged)); } catch (e) {}
+            return merged;
+          }
+          return curr;
+        });
+      }
       if (Array.isArray(equiposRes.data)) setEquipos(equiposRes.data);
       if (Array.isArray(partidosRes.data)) setPartidos(partidosRes.data);
 
@@ -228,6 +244,47 @@ export function AppProvider({ children }) {
     }
   }, [showToast]);
 
+  // Actualizar perfil de jugador (apodo, foto, equipo, etc.)
+  const handleUpdateJugador = useCallback(async (id, updateData) => {
+    setJugadores(prev =>
+      prev.map(j => (j.id === id ? { ...j, ...updateData } : j))
+    );
+    if (currentUser && currentUser.id === id) {
+      handleSetCurrentUser({ ...currentUser, ...updateData });
+    }
+    const res = await updateJugador(id, updateData);
+    if (res.success) {
+      showToast('Perfil actualizado correctamente', 'success');
+    }
+    return res.success;
+  }, [currentUser, handleSetCurrentUser, showToast]);
+
+  // Login de usuario existente por Email o Nombre
+  const handleLogin = useCallback((identifier) => {
+    if (!identifier || !identifier.trim()) return { success: false, message: 'Ingresá tu correo o nombre.' };
+    const clean = identifier.trim().toLowerCase();
+    const found = jugadores.find(j => 
+      (j.email && j.email.toLowerCase() === clean) ||
+      (j.nombre && j.nombre.toLowerCase() === clean) ||
+      (j.id && j.id.toLowerCase() === clean)
+    );
+    if (found) {
+      handleSetCurrentUser(found);
+      showToast(`¡Hola, ${found.nombre}! Sesión iniciada`, 'success');
+      return { success: true, user: found };
+    }
+    return {
+      success: false,
+      message: 'No encontramos ningún jugador registrado con ese correo o nombre.'
+    };
+  }, [jugadores, handleSetCurrentUser, showToast]);
+
+  // Logout de usuario
+  const handleLogout = useCallback(() => {
+    handleSetCurrentUser(null);
+    showToast('Sesión cerrada', 'info');
+  }, [handleSetCurrentUser, showToast]);
+
   // Notify next match players and roles
   const triggerNextMatchNotification = useCallback((finishedMatch) => {
     if (!currentTournament || !currentTournament.matches) return;
@@ -311,6 +368,9 @@ export function AppProvider({ children }) {
     presentesCount,
     currentUser,
     setCurrentUser: handleSetCurrentUser,
+    handleLogin,
+    handleLogout,
+    handleUpdateJugador,
     currentTournament,
     setCurrentTournament: handleSaveTournament,
     matchCallAlert,
