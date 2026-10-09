@@ -2,68 +2,42 @@
 
 export const API_URL = 'https://script.google.com/macros/s/AKfycbxTIaI-9GGDUeUmrkuuewpkGnambQGn66wsAl-fGbnIe9iVKR3Fqb08Nsj8eAhtPxyR/exec';
 
-// Initial seed data used if offline, initial render, or if the Apps Script URL requires login credentials
-export const DEFAULT_JUGADORES = [
-  { id: 'JUG-01', nombre: 'Agustín', alias: 'El As', presente: true, partidos_jugados: 18, partidos_ganados: 14, torneos_ganados: 3 },
-  { id: 'JUG-02', nombre: 'Gonzalo', alias: 'El Gallego', presente: true, partidos_jugados: 16, partidos_ganados: 11, torneos_ganados: 2 },
-  { id: 'JUG-03', nombre: 'Martín', alias: 'Tinti', presente: true, partidos_jugados: 15, partidos_ganados: 9, torneos_ganados: 1 },
-  { id: 'JUG-04', nombre: 'Federico', alias: 'Fede Funes', presente: true, partidos_jugados: 20, partidos_ganados: 15, torneos_ganados: 4 },
-  { id: 'JUG-05', nombre: 'Lucas', alias: 'El Mudo', presente: true, partidos_jugados: 14, partidos_ganados: 8, torneos_ganados: 1 },
-  { id: 'JUG-06', nombre: 'Facundo', alias: 'Facu Flor', presente: true, partidos_jugados: 12, partidos_ganados: 7, torneos_ganados: 1 },
-  { id: 'JUG-07', nombre: 'Nicolás', alias: 'Nico Sota', presente: false, partidos_jugados: 10, partidos_ganados: 4, torneos_ganados: 0 },
-  { id: 'JUG-08', nombre: 'Tomás', alias: 'Tomi Ancho', presente: true, partidos_jugados: 13, partidos_ganados: 8, torneos_ganados: 1 },
-  { id: 'JUG-09', nombre: 'Joaquín', alias: 'Joaco Envido', presente: false, partidos_jugados: 8, partidos_ganados: 3, torneos_ganados: 0 },
-  { id: 'JUG-10', nombre: 'Santiago', alias: 'Santi Vale4', presente: true, partidos_jugados: 15, partidos_ganados: 10, torneos_ganados: 2 },
-];
+// Initial seed data: limpio por defecto (los datos provienen de Google Sheets o inscripciones reales)
+export const DEFAULT_JUGADORES = [];
+export const DEFAULT_EQUIPOS = [];
+export const DEFAULT_PARTIDOS = [];
 
-export const DEFAULT_EQUIPOS = [
-  { id: 'EQ-01', nombre: 'Los Bravos de Funes', integrantes: 'Agustín / Federico', pj: 12, pg: 10, torneos: 3 },
-  { id: 'EQ-02', nombre: 'Sota y Caballo', integrantes: 'Gonzalo / Martín', pj: 10, pg: 7, torneos: 1 },
-  { id: 'EQ-03', nombre: 'El Envido Mayor', integrantes: 'Lucas / Facundo', pj: 9, pg: 5, torneos: 1 },
-  { id: 'EQ-04', nombre: 'Quiero Retruco', integrantes: 'Tomás / Santiago', pj: 11, pg: 6, torneos: 1 },
-];
-
-export const DEFAULT_PARTIDOS = [
-  {
-    id_partido: 'P-101',
-    id_torneo: 'T-2026-01',
-    fecha: '09/10/2026 21:30',
-    equipo_nosotros: 'Los Bravos de Funes',
-    equipo_ellos: 'Sota y Caballo',
-    puntos_nosotros: 30,
-    puntos_ellos: 24,
-    ganador: 'Los Bravos de Funes',
-    fase: 'Final'
-  },
-  {
-    id_partido: 'P-102',
-    id_torneo: 'T-2026-01',
-    fecha: '09/10/2026 20:45',
-    equipo_nosotros: 'Los Bravos de Funes',
-    equipo_ellos: 'Quiero Retruco',
-    puntos_nosotros: 30,
-    puntos_ellos: 18,
-    ganador: 'Los Bravos de Funes',
-    fase: 'Semifinal'
-  },
-  {
-    id_partido: 'P-103',
-    id_torneo: 'T-2026-01',
-    fecha: '09/10/2026 20:40',
-    equipo_nosotros: 'Sota y Caballo',
-    equipo_ellos: 'El Envido Mayor',
-    puntos_nosotros: 30,
-    puntos_ellos: 28,
-    ganador: 'Sota y Caballo',
-    fase: 'Semifinal'
-  }
-];
-
-// Helper to get local cache
+// Helper to get local cache (auto-purgando datos demo antiguos si existieran)
 const getCache = (key, fallback) => {
   try {
     const item = localStorage.getItem(`funes_${key}`);
-    return item ? JSON.parse(item) : fallback;
+    if (!item) return fallback;
+    const parsed = JSON.parse(item);
+    if (!Array.isArray(parsed)) return fallback;
+
+    // Purga automática de registros demo anteriores
+    if (key === 'jugadores') {
+      const cleaned = parsed.filter(j => !['JUG-01', 'JUG-02', 'JUG-03', 'JUG-04', 'JUG-05', 'JUG-06', 'JUG-07', 'JUG-08', 'JUG-09', 'JUG-10'].includes(j.id));
+      if (cleaned.length !== parsed.length) {
+        localStorage.setItem(`funes_${key}`, JSON.stringify(cleaned));
+      }
+      return cleaned;
+    }
+    if (key === 'equipos') {
+      const cleaned = parsed.filter(eq => !['EQ-01', 'EQ-02', 'EQ-03', 'EQ-04'].includes(eq.id));
+      if (cleaned.length !== parsed.length) {
+        localStorage.setItem(`funes_${key}`, JSON.stringify(cleaned));
+      }
+      return cleaned;
+    }
+    if (key === 'partidos') {
+      const cleaned = parsed.filter(p => !['P-101', 'P-102', 'P-103'].includes(p.id_partido));
+      if (cleaned.length !== parsed.length) {
+        localStorage.setItem(`funes_${key}`, JSON.stringify(cleaned));
+      }
+      return cleaned;
+    }
+    return parsed;
   } catch (e) {
     return fallback;
   }
