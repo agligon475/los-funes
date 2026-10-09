@@ -25,6 +25,8 @@ export default function AnotadorView() {
   const [equipoEllos, setEquipoEllos] = useState('Ellos');
   const [torneoId, setTorneoId] = useState('Amistoso');
   const [faseMatch, setFaseMatch] = useState('Fase Regular');
+  const [anotadorOficial, setAnotadorOficial] = useState('');
+  const [fiscalizadorOficial, setFiscalizadorOficial] = useState('');
 
   // Scores
   const [puntosNosotros, setPuntosNosotros] = useState(0);
@@ -46,6 +48,8 @@ export default function AnotadorView() {
       if (anotadorPreload.idTorneo) setTorneoId(anotadorPreload.idTorneo);
       if (anotadorPreload.fase) setFaseMatch(anotadorPreload.fase);
       if (anotadorPreload.maxScore) setMaxScore(anotadorPreload.maxScore);
+      if (anotadorPreload.anotador) setAnotadorOficial(anotadorPreload.anotador);
+      if (anotadorPreload.fiscalizador) setFiscalizadorOficial(anotadorPreload.fiscalizador);
 
       // Reset scores for new match
       setPuntosNosotros(0);
@@ -128,7 +132,9 @@ export default function AnotadorView() {
       puntos_nosotros: puntosNosotros,
       puntos_ellos: puntosEllos,
       ganador: ganadorNombre,
-      fase: faseMatch
+      fase: faseMatch,
+      anotador: anotadorOficial || 'Anotador Mesa',
+      fiscalizador: fiscalizadorOficial || 'Fiscalizador Mesa'
     };
 
     const ok = await handleSavePartido(partidoData);
@@ -196,16 +202,28 @@ export default function AnotadorView() {
         </div>
       </div>
 
-      {/* Torneo / Fase Tag if preloaded */}
-      {torneoId !== 'Amistoso' && (
-        <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-1.5 text-xs text-amber-300">
-          <span className="font-bold flex items-center space-x-1">
-            <Swords className="w-3.5 h-3.5" />
-            <span>{torneoId}</span>
-          </span>
-          <span className="font-semibold uppercase text-[10px] bg-amber-500/20 px-2 py-0.5 rounded">
-            {faseMatch}
-          </span>
+      {/* Torneo / Fase & Officials Tag if preloaded */}
+      {(torneoId !== 'Amistoso' || anotadorOficial) && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-2.5 text-xs text-amber-300 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="font-bold flex items-center space-x-1">
+              <Swords className="w-3.5 h-3.5" />
+              <span>{torneoId}</span>
+            </span>
+            <span className="font-semibold uppercase text-[10px] bg-amber-500/20 px-2 py-0.5 rounded">
+              {faseMatch}
+            </span>
+          </div>
+          {(anotadorOficial || fiscalizadorOficial) && (
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-amber-500/20 text-[11px]">
+              <span className="truncate text-slate-300">
+                ✍️ Anota: <strong className="text-amber-400">{anotadorOficial || 'Mesa'}</strong>
+              </span>
+              <span className="truncate text-slate-300 text-right">
+                ⚖️ Fiscaliza: <strong className="text-purple-300">{fiscalizadorOficial || 'Mesa'}</strong>
+              </span>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
-import { RefreshCw, CloudCheck, Info, ShieldAlert, Sparkles } from 'lucide-react';
+import { RefreshCw, ShieldAlert, Share2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 export default function Header() {
   const { syncing, authRestricted, refreshAll } = useApp();
   const [showConfigModal, setShowConfigModal] = useState(false);
+
+  const shareWhatsApp = () => {
+    const origin = window.location.origin;
+    const message = encodeURIComponent(
+      `🃏 ¡Juntada de Truco de Los Funes!\nInscribite para armar parejas y seguir el torneo en vivo acá:\n${origin}/#inscribirse`
+    );
+    window.open(`https://api.whatsapp.com/send?text=${message}`, '_blank');
+  };
 
   return (
     <>
@@ -29,7 +37,15 @@ export default function Header() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1.5">
+            <button
+              onClick={shareWhatsApp}
+              title="Compartir link por WhatsApp"
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 active:scale-95 transition-all"
+            >
+              <Share2 className="w-4 h-4 stroke-[2.5]" />
+            </button>
+
             {authRestricted && (
               <button
                 onClick={() => setShowConfigModal(true)}

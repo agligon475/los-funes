@@ -1,11 +1,17 @@
 import React from 'react';
-import { Users, Flame, Trophy, BarChart3 } from 'lucide-react';
+import { UserPlus, Users, Flame, Trophy, BarChart3 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 export default function BottomNav() {
   const { activeTab, setActiveTab, presentesCount } = useApp();
 
   const tabs = [
+    {
+      id: 'inscribirse',
+      label: 'Inscribirme',
+      icon: UserPlus,
+      badge: null
+    },
     {
       id: 'presentes',
       label: 'Presentes',
@@ -34,7 +40,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/98 backdrop-blur-xl border-t border-slate-800 shadow-bottom-nav pb-safe pointer-events-auto">
-      <div className="max-w-md mx-auto grid grid-cols-4 h-16">
+      <div className="max-w-md mx-auto grid grid-cols-5 h-16">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -51,7 +57,7 @@ export default function BottomNav() {
             >
               <div className="relative">
                 <Icon
-                  className={`w-6 h-6 transition-transform duration-200 ${
+                  className={`w-5 h-5 transition-transform duration-200 ${
                     isActive ? 'scale-110 stroke-[2.5]' : 'stroke-[1.8]'
                   }`}
                 />
@@ -61,7 +67,7 @@ export default function BottomNav() {
                   </span>
                 )}
               </div>
-              <span className={`text-[11px] mt-1 tracking-tight ${isActive ? 'text-amber-400 font-bold' : 'text-slate-400'}`}>
+              <span className={`text-[10px] mt-1 tracking-tight truncate max-w-[65px] ${isActive ? 'text-amber-400 font-bold' : 'text-slate-400'}`}>
                 {tab.label}
               </span>
               {isActive && (

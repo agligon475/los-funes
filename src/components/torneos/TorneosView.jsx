@@ -7,11 +7,13 @@ import {
   Users,
   Swords,
   CheckCircle,
-  AlertCircle,
   Crown,
-  ChevronRight,
-  ArrowRight
+  Bell,
+  UserCheck,
+  ShieldCheck,
+  Edit2
 } from 'lucide-react';
+import { triggerTurnNotification, playMatchCallSound } from '../../services/notifications';
 
 const FUNES_TEAM_NAMES = [
   'Los Bravos de Funes',
@@ -32,12 +34,14 @@ export default function TorneosView() {
     presentesCount,
     setActiveTab,
     startMatchFromTournament,
+    currentTournament,
+    setCurrentTournament,
+    triggerNextMatchNotification,
     showToast
   } = useApp();
 
   const [teamSize, setTeamSize] = useState(2); // 1 (1v1), 2 (2v2), 3 (3v3)
   const [tournamentName, setTournamentName] = useState('Torneo Juntada Funes');
-  const [currentTournament, setCurrentTournament] = useState(null);
 
   // Filter only present players
   const presentPlayers = jugadores.filter(j => j.presente);
@@ -45,25 +49,18 @@ export default function TorneosView() {
   // Calculate minimum players needed
   const minPlayersNeeded = teamSize * 2;
 
-  // Restore saved tournament from local storage if exists
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('funes_active_tournament');
-      if (saved) {
-        setCurrentTournament(JSON.parse(saved));
-      }
-    } catch (e) {
-      // ignore
-    }
-  }, []);
-
   const saveTournamentState = (tournament) => {
     setCurrentTournament(tournament);
-    try {
-      localStorage.setItem('funes_active_tournament', JSON.stringify(tournament));
-    } catch (e) {
-      // ignore
-    }
+  };
+
+  // Helper to pick officials
+  const pickOfficials = (teamA, teamB, allPresent) => {
+    // Anotador: preferably from teamA or neutral
+    const anotadorName = teamA.players?.[0]?.nombre || teamA.members.split('&')[0]?.trim() || 'Jugador A';
+    // Fiscalizador: preferably from teamB or neutral
+    const fiscalizadorName = teamB.players?.[0]?.nombre || teamB.members.split('&')[0]?.trim() || 'Jugador B';
+
+    return { anotador: anotadorName, fiscalizador: fiscalizadorName };
   };
 
   // Shuffle & Generate Tournament
@@ -102,70 +99,81 @@ export default function TorneosView() {
     }
 
     // 3. Generate Rounds
-    // If 2 teams -> Final
-    // If 3 or 4 teams -> Semifinales + Final
-    // If 5 to 8 teams -> Cuartos + Semis + Final
     let matches = [];
     const torId = `TF-${Date.now().toString().slice(-4)}`;
 
     if (teams.length === 2) {
+      const off = pickOfficials(teams[0], teams[1], presentPlayers);
       matches.push({
         id: `M-1`,
         fase: 'Gran Final',
         teamA: teams[0],
         teamB: teams[1],
+        anotador: off.anotador,
+        fiscalizador: off.fiscalizador,
         winner: null,
         played: false
       });
     } else if (teams.length <= 4) {
-      // Semifinales
+      const off1 = pickOfficials(teams[0], teams[1], presentPlayers);
       matches.push({
         id: `M-SEM-1`,
         fase: 'Semifinal 1',
         teamA: teams[0],
         teamB: teams[1],
+        anotador: off1.anotador,
+        fiscalizador: off1.fiscalizador,
         winner: null,
         played: false
       });
+
+      const off2 = teams[3] ? pickOfficials(teams[2], teams[3], presentPlayers) : { anotador: teams[2].members, fiscalizador: '-' };
       matches.push({
         id: `M-SEM-2`,
         fase: 'Semifinal 2',
         teamA: teams[2],
         teamB: teams[3] || { name: 'Libre (Bye)', members: '-' },
+        anotador: off2.anotador,
+        fiscalizador: off2.fiscalizador,
         winner: teams[3] ? null : teams[2],
         played: !teams[3]
       });
-      // Final placeholder
+
       matches.push({
         id: `M-FIN`,
         fase: 'Gran Final',
         teamA: null,
         teamB: null,
+        anotador: 'Por designar',
+        fiscalizador: 'Por designar',
         winner: null,
         played: false,
         placeholder: 'Ganador Semifinal 1 vs Semifinal 2'
       });
     } else {
-      // Cuartos de Final (up to 8 teams)
       const numMatches = Math.ceil(teams.length / 2);
       for (let i = 0; i < numMatches; i++) {
         const tA = teams[i * 2];
         const tB = teams[i * 2 + 1] || null;
+        const off = tB ? pickOfficials(tA, tB, presentPlayers) : { anotador: tA.members, fiscalizador: '-' };
         matches.push({
           id: `M-Q-${i + 1}`,
           fase: `Cuartos ${i + 1}`,
           teamA: tA,
           teamB: tB || { name: 'Libre (Bye)', members: '-' },
+          anotador: off.anotador,
+          fiscalizador: off.fiscalizador,
           winner: tB ? null : tA,
           played: !tB
         });
       }
-      // Semis placeholder
       matches.push({
         id: `M-SEM-1`,
         fase: 'Semifinal 1',
         teamA: null,
         teamB: null,
+        anotador: 'Por designar',
+        fiscalizador: 'Por designar',
         winner: null,
         placeholder: 'Ganador Cuartos 1 vs Cuartos 2'
       });
@@ -174,15 +182,18 @@ export default function TorneosView() {
         fase: 'Semifinal 2',
         teamA: null,
         teamB: null,
+        anotador: 'Por designar',
+        fiscalizador: 'Por designar',
         winner: null,
         placeholder: 'Ganador Cuartos 3 vs Cuartos 4'
       });
-      // Final placeholder
       matches.push({
         id: `M-FIN`,
         fase: 'Gran Final',
         teamA: null,
         teamB: null,
+        anotador: 'Por designar',
+        fiscalizador: 'Por designar',
         winner: null,
         placeholder: 'Ganador Semifinal 1 vs Semifinal 2'
       });
@@ -213,10 +224,31 @@ export default function TorneosView() {
     startMatchFromTournament({
       equipoNosotros: match.teamA.name,
       equipoEllos: match.teamB.name,
-      idTorneo: currentTournament.name || 'Torneo Funes',
+      idTorneo: currentTournament?.name || 'Torneo Funes',
       fase: match.fase,
+      anotador: match.anotador,
+      fiscalizador: match.fiscalizador,
       maxScore: 30
     });
+  };
+
+  // Manual Notification Trigger (Call Table)
+  const handleCallMatch = (match) => {
+    playMatchCallSound();
+    triggerTurnNotification(match, 'jugador');
+    showToast(`📢 ¡Llamado a la mesa emitido para ${match.teamA?.name} vs ${match.teamB?.name}!`, 'info');
+  };
+
+  // Update officials on match
+  const handleUpdateOfficial = (matchId, field, value) => {
+    if (!currentTournament) return;
+    const updatedMatches = currentTournament.matches.map(m => {
+      if (m.id === matchId) {
+        return { ...m, [field]: value };
+      }
+      return m;
+    });
+    saveTournamentState({ ...currentTournament, matches: updatedMatches });
   };
 
   // Declare match winner manually or advance
@@ -232,16 +264,20 @@ export default function TorneosView() {
 
     // Check if we need to advance to Final or Semis
     const currentMatch = updatedMatches.find(m => m.id === matchId);
-    
-    // If semifinal 1, advance to Final teamA
+
     if (matchId === 'M-SEM-1') {
       const fin = updatedMatches.find(m => m.id === 'M-FIN');
-      if (fin) fin.teamA = winningTeam;
+      if (fin) {
+        fin.teamA = winningTeam;
+        fin.anotador = winningTeam.members.split('&')[0]?.trim();
+      }
     }
-    // If semifinal 2, advance to Final teamB
     if (matchId === 'M-SEM-2') {
       const fin = updatedMatches.find(m => m.id === 'M-FIN');
-      if (fin) fin.teamB = winningTeam;
+      if (fin) {
+        fin.teamB = winningTeam;
+        fin.fiscalizador = winningTeam.members.split('&')[0]?.trim();
+      }
     }
 
     // Check champion
@@ -258,6 +294,9 @@ export default function TorneosView() {
     };
 
     saveTournamentState(updated);
+
+    // Auto-notify next match
+    triggerNextMatchNotification(currentMatch);
   };
 
   return (
@@ -357,7 +396,6 @@ export default function TorneosView() {
               onClick={() => {
                 if (confirm('¿Deseas reiniciar y limpiar el torneo actual?')) {
                   setCurrentTournament(null);
-                  localStorage.removeItem('funes_active_tournament');
                 }
               }}
               className="text-xs text-slate-500 hover:text-rose-400 font-medium"
@@ -386,20 +424,32 @@ export default function TorneosView() {
                     <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
                       {match.fase}
                     </span>
-                    {hasWinner ? (
-                      <span className="text-[10px] font-bold text-emerald-400 flex items-center space-x-1 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                        <CheckCircle className="w-3 h-3" />
-                        <span>Completado</span>
-                      </span>
-                    ) : isReady ? (
-                      <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                        Listo para Jugar
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-slate-500 font-medium">
-                        Esperando cruce
-                      </span>
-                    )}
+                    <div className="flex items-center space-x-2">
+                      {isReady && !hasWinner && (
+                        <button
+                          onClick={() => handleCallMatch(match)}
+                          title="Llamar cruce a la mesa y hacer sonar chicharra"
+                          className="flex items-center space-x-1 text-[10px] font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 px-2 py-0.5 rounded-lg border border-amber-500/40"
+                        >
+                          <Bell className="w-3 h-3" />
+                          <span>Llamar Mesa</span>
+                        </button>
+                      )}
+                      {hasWinner ? (
+                        <span className="text-[10px] font-bold text-emerald-400 flex items-center space-x-1 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                          <CheckCircle className="w-3 h-3" />
+                          <span>Completado</span>
+                        </span>
+                      ) : isReady ? (
+                        <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                          Listo
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          Esperando
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Teams matchup */}
@@ -472,6 +522,30 @@ export default function TorneosView() {
                       )}
                     </div>
                   </div>
+
+                  {/* Officials Section (Anotador & Fiscalizador) */}
+                  {isReady && (
+                    <div className="grid grid-cols-2 gap-2 mb-3 text-[11px] bg-slate-950/60 p-2 rounded-xl border border-slate-800">
+                      <div className="flex items-center space-x-1.5 min-w-0">
+                        <UserCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-[10px] text-slate-500 block leading-tight">Anotador:</span>
+                          <span className="font-bold text-slate-200 truncate block">
+                            {match.anotador || 'Por designar'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-1.5 min-w-0">
+                        <ShieldCheck className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-[10px] text-slate-500 block leading-tight">Fiscalizador:</span>
+                          <span className="font-bold text-slate-200 truncate block">
+                            {match.fiscalizador || 'Por designar'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Play Button */}
                   {isReady && (

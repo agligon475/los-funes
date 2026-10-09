@@ -4,6 +4,8 @@ import Header from './components/layout/Header';
 import BottomNav from './components/layout/BottomNav';
 import Toast from './components/common/Toast';
 import SplashLoader from './components/common/SplashLoader';
+import MatchCallModal from './components/common/MatchCallModal';
+import InscripcionView from './components/inscripcion/InscripcionView';
 import PresentesView from './components/presentes/PresentesView';
 import AnotadorView from './components/anotador/AnotadorView';
 import TorneosView from './components/torneos/TorneosView';
@@ -17,10 +19,14 @@ function MainContent() {
       {/* Splash screen loader */}
       <SplashLoader />
 
+      {/* Match call alert modal when previous match finishes */}
+      <MatchCallModal />
+
       <Header />
       <Toast />
 
       <div className="flex-1">
+        {activeTab === 'inscribirse' && <InscripcionView />}
         {activeTab === 'presentes' && <PresentesView />}
         {activeTab === 'anotador' && <AnotadorView />}
         {activeTab === 'torneos' && <TorneosView />}

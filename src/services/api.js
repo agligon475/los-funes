@@ -253,7 +253,7 @@ export async function savePartido(partidoData) {
 }
 
 /**
- * Agregar nuevo jugador
+ * Agregar nuevo jugador / Inscripción desde formulario
  */
 export async function addJugador(jugador) {
   const cached = getCache('jugadores', DEFAULT_JUGADORES);
@@ -261,7 +261,10 @@ export async function addJugador(jugador) {
     id: jugador.id || `JUG-${Date.now().toString().slice(-4)}`,
     nombre: jugador.nombre,
     alias: jugador.alias || '',
+    telefono: jugador.telefono || '',
+    pareja_sugerida: jugador.pareja_sugerida || jugador.pareja || '',
     presente: jugador.presente ?? true,
+    fecha_inscripcion: jugador.fecha_inscripcion || new Date().toLocaleDateString('es-AR'),
     partidos_jugados: 0,
     partidos_ganados: 0,
     torneos_ganados: 0
