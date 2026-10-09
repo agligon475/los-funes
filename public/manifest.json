@@ -1,0 +1,18 @@
+{
+  "short_name": "Truco Funes",
+  "name": "Suite Truco Funes — Juntadas y Torneos",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0a2618",
+  "theme_color": "#0f3823",
+  "display": "standalone",
+  "orientation": "portrait",
+  "description": "App mobile-first para gestión de presentes, anotador digital de truco con porotos, y armado de torneos para Los Funes."
+}
