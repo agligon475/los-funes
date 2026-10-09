@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { RefreshCw, ShieldAlert, Share2 } from 'lucide-react';
+import { RefreshCw, ShieldAlert, Share2, ShieldCheck } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 export default function Header() {
-  const { syncing, authRestricted, refreshAll } = useApp();
+  const { syncing, authRestricted, refreshAll, activeTab, setActiveTab } = useApp();
   const [showConfigModal, setShowConfigModal] = useState(false);
 
   const shareWhatsApp = () => {
@@ -44,6 +44,19 @@ export default function Header() {
               className="w-9 h-9 flex items-center justify-center rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 active:scale-95 transition-all"
             >
               <Share2 className="w-4 h-4 stroke-[2.5]" />
+            </button>
+
+            {/* SuperAdmin button */}
+            <button
+              onClick={() => setActiveTab(activeTab === 'admin' ? 'presentes' : 'admin')}
+              title="Panel SuperAdmin"
+              className={`w-9 h-9 flex items-center justify-center rounded-xl border active:scale-95 transition-all ${
+                activeTab === 'admin'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-glow-gold'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700/60'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
             </button>
 
             {authRestricted && (

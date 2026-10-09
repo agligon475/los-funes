@@ -18,14 +18,15 @@ import {
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  // Check if opened via #inscribirse
-  const initialTab =
-    typeof window !== 'undefined' &&
-    (window.location.hash === '#inscribirse' || window.location.search.includes('view=inscribirse'))
-      ? 'inscribirse'
-      : 'presentes';
+  // Check if opened via #inscribirse or #admin
+  const getInitialTab = () => {
+    if (typeof window === 'undefined') return 'presentes';
+    if (window.location.hash === '#admin' || window.location.hash === '#superadmin') return 'admin';
+    if (window.location.hash === '#inscribirse' || window.location.search.includes('view=inscribirse')) return 'inscribirse';
+    return 'presentes';
+  };
 
-  const [activeTab, setActiveTab] = useState(initialTab); // 'inscribirse' | 'presentes' | 'anotador' | 'torneos' | 'rankings'
+  const [activeTab, setActiveTab] = useState(getInitialTab); // 'inscribirse' | 'presentes' | 'anotador' | 'torneos' | 'rankings' | 'admin'
   const [jugadores, setJugadores] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [partidos, setPartidos] = useState([]);
@@ -95,9 +96,9 @@ export function AppProvider({ children }) {
   }, []);
 
   // Fetch all sheets
-  const loadInitialData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setSyncing(true);
-    else setLoading(true);
+  const loadInitialData = useCallback(async (isRefresh = false, silent = false) => {
+    if (isRefresh && !silent) setSyncing(true);
+    else if (!isRefresh) setLoading(true);
 
     try {
       const [jugadoresRes, equiposRes, partidosRes] = await Promise.all([
@@ -106,14 +107,9 @@ export function AppProvider({ children }) {
         getSheet('Partidos')
       ]);
 
-      if (jugadoresRes.data?.length) setJugadores(jugadoresRes.data);
-      else setJugadores(DEFAULT_JUGADORES);
-
-      if (equiposRes.data?.length) setEquipos(equiposRes.data);
-      else setEquipos(DEFAULT_EQUIPOS);
-
-      if (partidosRes.data?.length) setPartidos(partidosRes.data);
-      else setPartidos(DEFAULT_PARTIDOS);
+      if (Array.isArray(jugadoresRes.data)) setJugadores(jugadoresRes.data);
+      if (Array.isArray(equiposRes.data)) setEquipos(equiposRes.data);
+      if (Array.isArray(partidosRes.data)) setPartidos(partidosRes.data);
 
       if (jugadoresRes.authRestricted) {
         setAuthRestricted(true);
@@ -121,12 +117,14 @@ export function AppProvider({ children }) {
         setAuthRestricted(false);
       }
 
-      if (isRefresh) {
+      if (isRefresh && !silent) {
         showToast('Datos actualizados con éxito', 'success');
       }
     } catch (err) {
       console.error('[AppContext] Error al cargar datos:', err);
-      showToast('Modo sin conexión: usando datos guardados localmente', 'warning');
+      if (!silent) {
+        showToast('Modo sin conexión: usando datos guardados localmente', 'warning');
+      }
     } finally {
       setLoading(false);
       setSyncing(false);
@@ -135,13 +133,31 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     loadInitialData();
+
+    // Auto-sync cada 20 segundos para que todos los teléfonos vean lo mismo en la juntada
+    const interval = setInterval(() => {
+      loadInitialData(true, true);
+    }, 20000);
+
+    // Auto-sync cuando el usuario vuelve a la app (al desbloquear el celu o cambiar de pestaña)
+    const onFocus = () => {
+      loadInitialData(true, true);
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [loadInitialData]);
 
-  // Listen to hash changes for deep links (e.g. #inscribirse)
+  // Listen to hash changes for deep links (e.g. #inscribirse, #admin)
   useEffect(() => {
     const onHashChange = () => {
       if (window.location.hash === '#inscribirse') {
         setActiveTab('inscribirse');
+      } else if (window.location.hash === '#admin' || window.location.hash === '#superadmin') {
+        setActiveTab('admin');
       }
     };
     window.addEventListener('hashchange', onHashChange);

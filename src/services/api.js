@@ -1,13 +1,34 @@
 // Centralized API Service for Suite Truco Funes (Google Apps Script Backend)
 
-export const API_URL = 'https://script.google.com/macros/s/AKfycbxTIaI-9GGDUeUmrkuuewpkGnambQGn66wsAl-fGbnIe9iVKR3Fqb08Nsj8eAhtPxyR/exec';
+export const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxTIaI-9GGDUeUmrkuuewpkGnambQGn66wsAl-fGbnIe9iVKR3Fqb08Nsj8eAhtPxyR/exec';
 
-// Initial seed data: limpio por defecto (los datos provienen de Google Sheets o inscripciones reales)
+export function getApiUrl() {
+  try {
+    const custom = localStorage.getItem('funes_custom_api_url');
+    return (custom && custom.trim()) ? custom.trim() : DEFAULT_API_URL;
+  } catch {
+    return DEFAULT_API_URL;
+  }
+}
+
+export function setCustomApiUrl(url) {
+  try {
+    if (url && url.trim()) {
+      localStorage.setItem('funes_custom_api_url', url.trim());
+    } else {
+      localStorage.removeItem('funes_custom_api_url');
+    }
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+// Initial seed data: limpio por defecto
 export const DEFAULT_JUGADORES = [];
 export const DEFAULT_EQUIPOS = [];
 export const DEFAULT_PARTIDOS = [];
 
-// Helper to get local cache (auto-purgando datos demo antiguos si existieran)
+// Helper to get local cache
 const getCache = (key, fallback) => {
   try {
     const item = localStorage.getItem(`funes_${key}`);
@@ -15,7 +36,7 @@ const getCache = (key, fallback) => {
     const parsed = JSON.parse(item);
     if (!Array.isArray(parsed)) return fallback;
 
-    // Purga automática de registros demo anteriores
+    // Purga de registros demo anteriores
     if (key === 'jugadores') {
       const cleaned = parsed.filter(j => !['JUG-01', 'JUG-02', 'JUG-03', 'JUG-04', 'JUG-05', 'JUG-06', 'JUG-07', 'JUG-08', 'JUG-09', 'JUG-10'].includes(j.id));
       if (cleaned.length !== parsed.length) {
@@ -81,7 +102,9 @@ function normalizeSheetData(sheetName, rawArray) {
       puntos_nosotros: Number(row.puntos_nosotros || 0),
       puntos_ellos: Number(row.puntos_ellos || 0),
       ganador: row.ganador || (Number(row.puntos_nosotros) > Number(row.puntos_ellos) ? row.equipo_nosotros : row.equipo_ellos),
-      fase: row.fase || 'Fase Regular'
+      fase: row.fase || 'Fase Regular',
+      anotador: row.anotador || '',
+      fiscalizador: row.fiscalizador || ''
     }));
   }
 
@@ -100,9 +123,79 @@ function normalizeSheetData(sheetName, rawArray) {
 }
 
 /**
+ * Test de diagnóstico en vivo con Google Apps Script
+ */
+export async function testApiConnection() {
+  const currentUrl = getApiUrl();
+  const start = Date.now();
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+    const res = await fetch(`${currentUrl}?sheet=Jugadores`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+    const duration = Date.now() - start;
+    const contentType = res.headers.get('content-type') || '';
+    const text = await res.text();
+
+    if (contentType.includes('text/html') || text.includes('accounts.google.com') || text.includes('<!doctype')) {
+      return {
+        status: 'login_required',
+        duration,
+        message: 'Google Apps Script solicita inicio de sesión. La implementación debe configurarse con "Quién tiene acceso: Cualquiera".',
+        url: currentUrl
+      };
+    }
+
+    if (res.ok) {
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        return {
+          status: 'invalid_json',
+          duration,
+          message: 'La URL respondió pero no devolvió JSON válido.',
+          raw: text.slice(0, 200)
+        };
+      }
+
+      return {
+        status: 'online',
+        duration,
+        message: '¡Conexión exitosa en tiempo real con Google Sheets!',
+        count: Array.isArray(parsed) ? parsed.length : 0,
+        url: currentUrl
+      };
+    }
+
+    return {
+      status: 'error',
+      duration,
+      message: `Error HTTP ${res.status}: ${res.statusText}`,
+      url: currentUrl
+    };
+  } catch (e) {
+    return {
+      status: 'cors_blocked',
+      duration: Date.now() - start,
+      message: `Bloqueado por CORS o sin conexión: ${e.message}. Típico de cuando Apps Script redirige al login de Google.`,
+      url: currentUrl
+    };
+  }
+}
+
+/**
  * Lectura GET desde Google Apps Script con fallback y cache inteligente
  */
 export async function getSheet(sheetName) {
+  const currentUrl = getApiUrl();
   const cacheKey = sheetName.toLowerCase();
   const defaultFallback = 
     sheetName === 'Jugadores' ? DEFAULT_JUGADORES :
@@ -113,7 +206,7 @@ export async function getSheet(sheetName) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6500);
 
-    const res = await fetch(`${API_URL}?sheet=${sheetName}`, {
+    const res = await fetch(`${currentUrl}?sheet=${sheetName}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       signal: controller.signal
@@ -121,32 +214,29 @@ export async function getSheet(sheetName) {
 
     clearTimeout(timeoutId);
 
-    // Si Apps Script devuelve una redirección HTML (ej: requiere login de Google)
     const contentType = res.headers.get('content-type') || '';
     if (!res.ok || contentType.includes('text/html')) {
-      console.warn(`[API] Google Apps Script devolvió status ${res.status} o HTML en ${sheetName}. Usando cache local.`);
       return { data: getCache(cacheKey, defaultFallback), fromCache: true, authRestricted: true };
     }
 
     const json = await res.json();
     const cleanData = normalizeSheetData(sheetName, json);
     
-    // Guardar en cache exitoso
     setCache(cacheKey, cleanData);
     return { data: cleanData, fromCache: false, authRestricted: false };
   } catch (error) {
-    console.warn(`[API] Error al consultar hoja ${sheetName}:`, error.message);
     return { data: getCache(cacheKey, defaultFallback), fromCache: true, error: error.message };
   }
 }
 
 /**
  * Escritura POST a Google Apps Script
- * NOTA CRUCIAL: Debe enviarse con Content-Type: 'text/plain;charset=utf-8' para no disparar preflight CORS
  */
 export async function postApi(payload) {
+  const currentUrl = getApiUrl();
+
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch(currentUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8'
@@ -171,10 +261,8 @@ export async function postApi(payload) {
 
 /**
  * Alternar presencia de jugador
- * { action: 'toggle_presente', sheet: 'Jugadores', id: 'ID_JUGADOR', presente: true/false }
  */
 export async function toggleJugadorPresente(id, presente) {
-  // Guardado optimista en cache
   const cached = getCache('jugadores', DEFAULT_JUGADORES);
   const updated = cached.map(j => j.id === id ? { ...j, presente } : j);
   setCache('jugadores', updated);
@@ -192,31 +280,11 @@ export async function toggleJugadorPresente(id, presente) {
 
 /**
  * Guardar resultado de partido
- * { action: 'add_row', sheet: 'Partidos', data: { id_partido, id_torneo, fecha, equipo_nosotros, equipo_ellos, puntos_nosotros, puntos_ellos, ganador, fase } }
  */
 export async function savePartido(partidoData) {
   const cachedPartidos = getCache('partidos', DEFAULT_PARTIDOS);
   const newPartidos = [partidoData, ...cachedPartidos];
   setCache('partidos', newPartidos);
-
-  // Actualizar estadísticas de jugadores en cache
-  const cachedJugadores = getCache('jugadores', DEFAULT_JUGADORES);
-  const updatedJugadores = cachedJugadores.map(jugador => {
-    const enNosotros = partidoData.equipo_nosotros.toLowerCase().includes(jugador.nombre.toLowerCase());
-    const enEllos = partidoData.equipo_ellos.toLowerCase().includes(jugador.nombre.toLowerCase());
-    
-    if (enNosotros || enEllos) {
-      const gano = (enNosotros && partidoData.ganador === partidoData.equipo_nosotros) ||
-                   (enEllos && partidoData.ganador === partidoData.equipo_ellos);
-      return {
-        ...jugador,
-        partidos_jugados: (jugador.partidos_jugados || 0) + 1,
-        partidos_ganados: gano ? (jugador.partidos_ganados || 0) + 1 : (jugador.partidos_ganados || 0)
-      };
-    }
-    return jugador;
-  });
-  setCache('jugadores', updatedJugadores);
 
   const payload = {
     action: 'add_row',
@@ -228,9 +296,6 @@ export async function savePartido(partidoData) {
   return { success: res.success, newPartidos };
 }
 
-/**
- * Agregar nuevo jugador / Inscripción desde formulario
- */
 /**
  * Agregar nuevo jugador / Inscripción desde formulario
  */
@@ -251,7 +316,6 @@ export async function addJugador(jugador) {
   const updated = [...cached, newPlayer];
   setCache('jugadores', updated);
 
-  // Si eligió un equipo existente, actualizar integrantes de ese equipo en caché
   if (newPlayer.equipo) {
     const cachedEquipos = getCache('equipos', DEFAULT_EQUIPOS);
     const eq = cachedEquipos.find(e => e.nombre.toLowerCase() === newPlayer.equipo.toLowerCase());
@@ -272,6 +336,42 @@ export async function addJugador(jugador) {
 
   const res = await postApi(payload);
   return { success: res.success, player: newPlayer, list: updated };
+}
+
+/**
+ * Eliminar jugador (Superadmin)
+ */
+export async function deleteJugador(id) {
+  const cached = getCache('jugadores', DEFAULT_JUGADORES);
+  const updated = cached.filter(j => j.id !== id);
+  setCache('jugadores', updated);
+
+  const payload = {
+    action: 'delete_row',
+    sheet: 'Jugadores',
+    id
+  };
+
+  const res = await postApi(payload);
+  return { success: res.success, list: updated };
+}
+
+/**
+ * Eliminar partido (Superadmin)
+ */
+export async function deletePartido(idPartido) {
+  const cached = getCache('partidos', DEFAULT_PARTIDOS);
+  const updated = cached.filter(p => p.id_partido !== idPartido);
+  setCache('partidos', updated);
+
+  const payload = {
+    action: 'delete_row',
+    sheet: 'Partidos',
+    id: idPartido
+  };
+
+  const res = await postApi(payload);
+  return { success: res.success, list: updated };
 }
 
 /**

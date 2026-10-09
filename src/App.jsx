@@ -10,6 +10,7 @@ import PresentesView from './components/presentes/PresentesView';
 import AnotadorView from './components/anotador/AnotadorView';
 import TorneosView from './components/torneos/TorneosView';
 import RankingsView from './components/rankings/RankingsView';
+import AdminView from './components/admin/AdminView';
 
 function MainContent() {
   const { activeTab } = useApp();
@@ -31,6 +32,7 @@ function MainContent() {
         {activeTab === 'anotador' && <AnotadorView />}
         {activeTab === 'torneos' && <TorneosView />}
         {activeTab === 'rankings' && <RankingsView />}
+        {activeTab === 'admin' && <AdminView />}
       </div>
 
       <BottomNav />
