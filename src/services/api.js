@@ -62,6 +62,8 @@ function normalizeSheetData(sheetName, rawArray) {
       id: row.id || row.ID || row.id_jugador || `JUG-${index + 1}`,
       nombre: row.nombre || row.Nombre || row.name || 'Sin Nombre',
       alias: row.alias || row.Alias || '',
+      telefono: row.telefono || row.Telefono || '',
+      equipo: row.equipo || row.Equipo || '',
       presente: row.presente === true || row.presente === 'true' || row.presente === 'TRUE' || row.asistio === true || row.asistio === 'TRUE',
       partidos_jugados: Number(row.partidos_jugados || row.pj || row.PJ || 0),
       partidos_ganados: Number(row.partidos_ganados || row.pg || row.PG || 0),
@@ -229,6 +231,9 @@ export async function savePartido(partidoData) {
 /**
  * Agregar nuevo jugador / Inscripción desde formulario
  */
+/**
+ * Agregar nuevo jugador / Inscripción desde formulario
+ */
 export async function addJugador(jugador) {
   const cached = getCache('jugadores', DEFAULT_JUGADORES);
   const newPlayer = {
@@ -236,7 +241,7 @@ export async function addJugador(jugador) {
     nombre: jugador.nombre,
     alias: jugador.alias || '',
     telefono: jugador.telefono || '',
-    pareja_sugerida: jugador.pareja_sugerida || jugador.pareja || '',
+    equipo: jugador.equipo || '',
     presente: jugador.presente ?? true,
     fecha_inscripcion: jugador.fecha_inscripcion || new Date().toLocaleDateString('es-AR'),
     partidos_jugados: 0,
@@ -246,6 +251,19 @@ export async function addJugador(jugador) {
   const updated = [...cached, newPlayer];
   setCache('jugadores', updated);
 
+  // Si eligió un equipo existente, actualizar integrantes de ese equipo en caché
+  if (newPlayer.equipo) {
+    const cachedEquipos = getCache('equipos', DEFAULT_EQUIPOS);
+    const eq = cachedEquipos.find(e => e.nombre.toLowerCase() === newPlayer.equipo.toLowerCase());
+    if (eq) {
+      const currentMembers = eq.integrantes ? eq.integrantes.split(' / ').map(m => m.trim()) : [];
+      if (!currentMembers.includes(newPlayer.nombre)) {
+        eq.integrantes = [...currentMembers, newPlayer.nombre].slice(0, 3).join(' / ');
+        setCache('equipos', cachedEquipos);
+      }
+    }
+  }
+
   const payload = {
     action: 'add_row',
     sheet: 'Jugadores',
@@ -254,6 +272,16 @@ export async function addJugador(jugador) {
 
   const res = await postApi(payload);
   return { success: res.success, player: newPlayer, list: updated };
+}
+
+/**
+ * Actualizar equipo
+ */
+export async function updateEquipo(equipoId, updatedFields) {
+  const cached = getCache('equipos', DEFAULT_EQUIPOS);
+  const updated = cached.map(eq => eq.id === equipoId ? { ...eq, ...updatedFields } : eq);
+  setCache('equipos', updated);
+  return { success: true, list: updated };
 }
 
 /**

@@ -27,6 +27,8 @@ export default function InscripcionView() {
     currentTournament,
     setActiveTab,
     startMatchFromTournament,
+    equipos,
+    handleAddEquipo,
     showToast
   } = useApp();
 
@@ -34,8 +36,9 @@ export default function InscripcionView() {
   const [nombre, setNombre] = useState('');
   const [alias, setAlias] = useState('');
   const [telefono, setTelefono] = useState('');
-  const [tienePareja, setTienePareja] = useState(false);
-  const [parejaSugerida, setParejaSugerida] = useState('');
+  const [tieneEquipo, setTieneEquipo] = useState(false);
+  const [selectedEquipo, setSelectedEquipo] = useState('');
+  const [nuevoEquipoNombre, setNuevoEquipoNombre] = useState('');
   const [loadingForm, setLoadingForm] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
@@ -62,11 +65,24 @@ export default function InscripcionView() {
 
     setLoadingForm(true);
 
+    let finalTeamName = '';
+    if (tieneEquipo) {
+      if (selectedEquipo === '__NEW__' && nuevoEquipoNombre.trim()) {
+        finalTeamName = nuevoEquipoNombre.trim();
+        await handleAddEquipo({
+          nombre: finalTeamName,
+          integrantes: nombre.trim()
+        });
+      } else if (selectedEquipo && selectedEquipo !== '__NEW__') {
+        finalTeamName = selectedEquipo;
+      }
+    }
+
     const newPlayerData = {
       nombre: nombre.trim(),
       alias: alias.trim(),
       telefono: telefono.trim(),
-      pareja: tienePareja ? parejaSugerida.trim() : '',
+      equipo: finalTeamName,
       presente: true
     };
 
@@ -74,13 +90,19 @@ export default function InscripcionView() {
     setLoadingForm(false);
 
     if (success) {
-      // Pedir permiso de notificaciones de una vez
       askNotifications();
-      showToast('¡Inscripción confirmada! Ya estás anotado como presente para hoy.', 'success');
+      showToast(
+        finalTeamName
+          ? `¡Inscripción confirmada en "${finalTeamName}"!`
+          : '¡Inscripción confirmada como Jugador Libre!',
+        'success'
+      );
       setNombre('');
       setAlias('');
       setTelefono('');
-      setParejaSugerida('');
+      setTieneEquipo(false);
+      setSelectedEquipo('');
+      setNuevoEquipoNombre('');
     }
   };
 
@@ -319,28 +341,57 @@ export default function InscripcionView() {
             />
           </div>
 
-          {/* Partner Option */}
-          <div className="space-y-2 pt-1 border-t border-slate-800/80">
-            <label className="flex items-center space-x-2 cursor-pointer">
+          {/* Team Option (Tríos de 3) */}
+          <div className="space-y-2.5 pt-2 border-t border-slate-800">
+            <label className="flex items-center space-x-2.5 cursor-pointer">
               <input
                 type="checkbox"
-                checked={tienePareja}
-                onChange={(e) => setTienePareja(e.target.checked)}
+                checked={tieneEquipo}
+                onChange={(e) => setTieneEquipo(e.target.checked)}
                 className="w-4 h-4 rounded text-amber-500 focus:ring-0 bg-slate-950 border-slate-700"
               />
-              <span className="text-xs font-bold text-slate-300">
-                ¿Vengo con pareja fija de Truco?
+              <span className="text-xs font-bold text-slate-200">
+                ¿Tenés equipo fijo de 3?
               </span>
             </label>
 
-            {tienePareja && (
-              <input
-                type="text"
-                placeholder="Nombre de tu compañero/a"
-                value={parejaSugerida}
-                onChange={(e) => setParejaSugerida(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 animate-in fade-in"
-              />
+            {tieneEquipo ? (
+              <div className="space-y-2 bg-slate-950/70 p-3 rounded-2xl border border-slate-800 animate-in fade-in">
+                <label className="block text-[11px] font-bold text-amber-400">
+                  Seleccioná tu equipo o creá uno nuevo:
+                </label>
+                <select
+                  value={selectedEquipo}
+                  onChange={(e) => setSelectedEquipo(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="">-- Seleccionar equipo existente --</option>
+                  {equipos.map((eq) => (
+                    <option key={eq.id} value={eq.nombre}>
+                      {eq.nombre} ({eq.integrantes ? `${eq.integrantes.split('/').length}/3 miembros` : '0/3'})
+                    </option>
+                  ))}
+                  <option value="__NEW__">+ Crear nuevo equipo de 3...</option>
+                </select>
+
+                {selectedEquipo === '__NEW__' && (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Nombre del nuevo equipo de 3..."
+                    value={nuevoEquipoNombre}
+                    onChange={(e) => setNuevoEquipoNombre(e.target.value)}
+                    className="w-full bg-slate-900 border border-amber-500/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none animate-in fade-in"
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/80 text-[11px] text-slate-400 flex items-center space-x-2">
+                <Users className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  Vas como <strong>Jugador Libre</strong>. Si a algún equipo de 3 le falta gente, el sistema te asignará automáticamente.
+                </span>
+              </div>
             )}
           </div>
 

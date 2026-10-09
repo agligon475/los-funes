@@ -37,10 +37,11 @@ export default function TorneosView() {
     currentTournament,
     setCurrentTournament,
     triggerNextMatchNotification,
+    equipos,
     showToast
   } = useApp();
 
-  const [teamSize, setTeamSize] = useState(2); // 1 (1v1), 2 (2v2), 3 (3v3)
+  const [teamSize, setTeamSize] = useState(3); // 3 (3v3 Tríos) por defecto en Los Funes
   const [tournamentName, setTournamentName] = useState('Torneo Juntada Funes');
 
   // Filter only present players
@@ -55,46 +56,102 @@ export default function TorneosView() {
 
   // Helper to pick officials
   const pickOfficials = (teamA, teamB, allPresent) => {
-    // Anotador: preferably from teamA or neutral
     const anotadorName = teamA.players?.[0]?.nombre || teamA.members.split('&')[0]?.trim() || 'Jugador A';
-    // Fiscalizador: preferably from teamB or neutral
     const fiscalizadorName = teamB.players?.[0]?.nombre || teamB.members.split('&')[0]?.trim() || 'Jugador B';
 
     return { anotador: anotadorName, fiscalizador: fiscalizadorName };
   };
 
-  // Shuffle & Generate Tournament
+  // Shuffle & Generate Tournament con asignación automática de libres a equipos fijos incompletos
   const handleShuffleTournament = () => {
     if (presentPlayers.length < minPlayersNeeded) {
       showToast(`Hacen falta al menos ${minPlayersNeeded} jugadores presentes para ${teamSize}v${teamSize}`, 'warning');
       return;
     }
 
-    // 1. Shuffle players using Fisher-Yates
-    const shuffled = [...presentPlayers].sort(() => Math.random() - 0.5);
-
-    // 2. Group into teams
     const teams = [];
-    let pool = [...shuffled];
 
-    let teamIdx = 0;
-    while (pool.length >= teamSize) {
-      const members = pool.splice(0, teamSize);
-      const teamName = teamSize === 1
-        ? members[0].nombre + (members[0].alias ? ` (${members[0].alias})` : '')
-        : FUNES_TEAM_NAMES[teamIdx % FUNES_TEAM_NAMES.length];
+    if (teamSize === 3 && equipos.length > 0) {
+      // 1. Identificar miembros presentes de equipos fijos
+      const usedPlayerIds = new Set();
+      const existingTeamsWithPresent = [];
 
-      teams.push({
-        id: `team-${teamIdx + 1}`,
-        name: teamName,
-        members: members.map(m => m.nombre).join(' & '),
-        players: members
+      equipos.forEach((eq, idx) => {
+        const rawMembers = eq.integrantes
+          ? eq.integrantes.split('/').map(m => m.trim().toLowerCase())
+          : [];
+
+        // Jugadores presentes que pertenecen a este equipo fijo
+        const presentMembers = presentPlayers.filter(j =>
+          !usedPlayerIds.has(j.id) &&
+          (rawMembers.includes(j.nombre.toLowerCase()) || (j.equipo && j.equipo.toLowerCase() === eq.nombre.toLowerCase()))
+        );
+
+        if (presentMembers.length > 0) {
+          presentMembers.forEach(p => usedPlayerIds.add(p.id));
+          existingTeamsWithPresent.push({
+            name: eq.nombre,
+            members: [...presentMembers]
+          });
+        }
       });
-      teamIdx++;
+
+      // 2. Jugadores libres presentes (sin equipo fijo o cuyo equipo no vino)
+      const freePlayers = presentPlayers
+        .filter(j => !usedPlayerIds.has(j.id))
+        .sort(() => Math.random() - 0.5);
+
+      // 3. Completar los equipos fijos incompletos con jugadores libres
+      existingTeamsWithPresent.forEach(t => {
+        while (t.members.length < 3 && freePlayers.length > 0) {
+          const sub = freePlayers.shift();
+          t.members.push(sub);
+        }
+        teams.push({
+          id: `team-${teams.length + 1}`,
+          name: t.name,
+          members: t.members.map(m => m.nombre).join(' & '),
+          players: t.members
+        });
+      });
+
+      // 4. Con los libres restantes, armar nuevos tríos de 3
+      let remainingPool = [...freePlayers];
+      let teamIdx = teams.length;
+      while (remainingPool.length >= 3) {
+        const trio = remainingPool.splice(0, 3);
+        const teamName = FUNES_TEAM_NAMES[teamIdx % FUNES_TEAM_NAMES.length];
+        teams.push({
+          id: `team-${teamIdx + 1}`,
+          name: teamName,
+          members: trio.map(m => m.nombre).join(' & '),
+          players: trio
+        });
+        teamIdx++;
+      }
+    } else {
+      // Sorteo general aleatorio si no es 3v3 o no hay equipos fijos definidos
+      const shuffled = [...presentPlayers].sort(() => Math.random() - 0.5);
+      let pool = [...shuffled];
+      let teamIdx = 0;
+      while (pool.length >= teamSize) {
+        const members = pool.splice(0, teamSize);
+        const teamName = teamSize === 1
+          ? members[0].nombre + (members[0].alias ? ` (${members[0].alias})` : '')
+          : FUNES_TEAM_NAMES[teamIdx % FUNES_TEAM_NAMES.length];
+
+        teams.push({
+          id: `team-${teamIdx + 1}`,
+          name: teamName,
+          members: members.map(m => m.nombre).join(' & '),
+          players: members
+        });
+        teamIdx++;
+      }
     }
 
     if (teams.length < 2) {
-      showToast('Se necesitan al menos 2 equipos para armar el torneo', 'warning');
+      showToast('Se necesitan al menos 2 equipos completos para armar el torneo', 'warning');
       return;
     }
 

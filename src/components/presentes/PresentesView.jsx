@@ -1,16 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Check, UserPlus, Users2, Search, CheckCircle2, Circle, Flame, Sparkles, X, Plus } from 'lucide-react';
+import { Check, UserPlus, Users2, Search, CheckCircle2, Circle, Flame, Sparkles, X, Plus, Shield } from 'lucide-react';
+import EquiposView from '../equipos/EquiposView';
 
 export default function PresentesView() {
   const {
     jugadores,
+    equipos,
     handleTogglePresente,
     handleAddJugador,
     handleAddEquipo,
     presentesCount,
     loading
   } = useApp();
+
+  const [tabSection, setTabSection] = useState('jugadores'); // 'jugadores' | 'equipos'
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('todos'); // 'todos' | 'presentes' | 'ausentes'
@@ -112,23 +116,53 @@ export default function PresentesView() {
         </div>
       </div>
 
-      {/* Quick Action Buttons (Add Player & Team) */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Sub-tab Switcher: Jugadores vs Tríos 3v3 */}
+      <div className="flex space-x-1.5 p-1 bg-slate-900 border border-slate-800 rounded-2xl text-xs font-bold">
         <button
-          onClick={() => setShowAddPlayerModal(true)}
-          className="flex items-center justify-center space-x-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 font-black py-2.5 px-3 rounded-xl shadow-glow-gold active:scale-95 transition-all text-xs"
+          onClick={() => setTabSection('jugadores')}
+          className={`flex-1 py-2 rounded-xl flex items-center justify-center space-x-1.5 transition-all ${
+            tabSection === 'jugadores'
+              ? 'bg-amber-500 text-slate-950 shadow-glow-gold'
+              : 'text-slate-400 hover:text-white'
+          }`}
         >
-          <UserPlus className="w-4 h-4 stroke-[2.5]" />
-          <span>+ Agregar Jugador</span>
+          <Users2 className="w-4 h-4" />
+          <span>Jugadores ({jugadores.length})</span>
         </button>
         <button
-          onClick={() => setShowAddTeamModal(true)}
-          className="flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold py-2.5 px-3 rounded-xl active:scale-95 transition-all text-xs"
+          onClick={() => setTabSection('equipos')}
+          className={`flex-1 py-2 rounded-xl flex items-center justify-center space-x-1.5 transition-all ${
+            tabSection === 'equipos'
+              ? 'bg-amber-500 text-slate-950 shadow-glow-gold'
+              : 'text-slate-400 hover:text-white'
+          }`}
         >
-          <Users2 className="w-4 h-4 text-amber-400" />
-          <span>+ Agregar Equipo</span>
+          <Shield className="w-4 h-4" />
+          <span>Tríos 3v3 ({equipos.length})</span>
         </button>
       </div>
+
+      {tabSection === 'equipos' ? (
+        <EquiposView />
+      ) : (
+        <>
+          {/* Quick Action Buttons (Add Player & Team) */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setShowAddPlayerModal(true)}
+              className="flex items-center justify-center space-x-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 font-black py-2.5 px-3 rounded-xl shadow-glow-gold active:scale-95 transition-all text-xs"
+            >
+              <UserPlus className="w-4 h-4 stroke-[2.5]" />
+              <span>+ Agregar Jugador</span>
+            </button>
+            <button
+              onClick={() => setShowAddTeamModal(true)}
+              className="flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold py-2.5 px-3 rounded-xl active:scale-95 transition-all text-xs"
+            >
+              <Users2 className="w-4 h-4 text-amber-400" />
+              <span>+ Agregar Equipo</span>
+            </button>
+          </div>
 
       {/* Search & Filter Bar */}
       <div className="space-y-2">
@@ -261,6 +295,8 @@ export default function PresentesView() {
           <UserPlus className="w-5 h-5 stroke-[2.5]" />
         </button>
       </div>
+      </>
+      )}
 
       {/* Modal: Agregar Jugador */}
       {showAddPlayerModal && (
