@@ -3,6 +3,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import Header from './components/layout/Header';
 import BottomNav from './components/layout/BottomNav';
 import Toast from './components/common/Toast';
+import SplashLoader from './components/common/SplashLoader';
 import PresentesView from './components/presentes/PresentesView';
 import AnotadorView from './components/anotador/AnotadorView';
 import TorneosView from './components/torneos/TorneosView';
@@ -13,6 +14,9 @@ function MainContent() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between">
+      {/* Splash screen loader */}
+      <SplashLoader />
+
       <Header />
       <Toast />
 
