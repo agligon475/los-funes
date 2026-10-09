@@ -56,7 +56,7 @@ const getCache = (key, fallback) => {
       return cleaned;
     }
     if (key === 'partidos') {
-      const cleaned = parsed.filter(p => !['P-101', 'P-102', 'P-103'].includes(p.id_partido));
+      const cleaned = parsed.filter(p => !['P-101', 'P-102', 'P-103', 'PAR-002', 'PAR-001'].includes(p.id_partido));
       if (cleaned.length !== parsed.length) {
         localStorage.setItem(`funes_${key}`, JSON.stringify(cleaned));
       }
@@ -93,26 +93,28 @@ function normalizeSheetData(sheetName, rawArray) {
       equipo: row.equipo || row.Equipo || '',
       foto: row.foto || row.Foto || row.avatar || '',
       presente: row.presente === true || row.presente === 'true' || row.presente === 'TRUE' || row.asistio === true || row.asistio === 'TRUE',
-      partidos_jugados: Number(row.partidos_jugados || row.pj || row.PJ || 0),
-      partidos_ganados: Number(row.partidos_ganados || row.pg || row.PG || 0),
-      torneos_ganados: Number(row.torneos_ganados || row.torneos || row.TG || 0),
+      partidos_jugados: 0,
+      partidos_ganados: 0,
+      torneos_ganados: 0,
     }));
   }
 
   if (sheetName === 'Partidos') {
-    return rawArray.map((row, index) => ({
-      id_partido: row.id_partido || row.id || `P-${index + 1}`,
-      id_torneo: row.id_torneo || 'Amistoso',
-      fecha: row.fecha || new Date().toLocaleDateString('es-AR'),
-      equipo_nosotros: row.equipo_nosotros || row.nosotros || 'Nosotros',
-      equipo_ellos: row.equipo_ellos || row.ellos || 'Ellos',
-      puntos_nosotros: Number(row.puntos_nosotros || 0),
-      puntos_ellos: Number(row.puntos_ellos || 0),
-      ganador: row.ganador || (Number(row.puntos_nosotros) > Number(row.puntos_ellos) ? row.equipo_nosotros : row.equipo_ellos),
-      fase: row.fase || 'Fase Regular',
-      anotador: row.anotador || '',
-      fiscalizador: row.fiscalizador || ''
-    }));
+    return rawArray
+      .filter(row => !['P-101', 'P-102', 'P-103', 'PAR-002', 'PAR-001'].includes(row.id_partido || row.id))
+      .map((row, index) => ({
+        id_partido: row.id_partido || row.id || `P-${index + 1}`,
+        id_torneo: row.id_torneo || 'Amistoso',
+        fecha: row.fecha || new Date().toLocaleDateString('es-AR'),
+        equipo_nosotros: row.equipo_nosotros || row.nosotros || 'Nosotros',
+        equipo_ellos: row.equipo_ellos || row.ellos || 'Ellos',
+        puntos_nosotros: Number(row.puntos_nosotros || 0),
+        puntos_ellos: Number(row.puntos_ellos || 0),
+        ganador: row.ganador || (Number(row.puntos_nosotros) > Number(row.puntos_ellos) ? row.equipo_nosotros : row.equipo_ellos),
+        fase: row.fase || 'Fase Regular',
+        anotador: row.anotador || '',
+        fiscalizador: row.fiscalizador || ''
+      }));
   }
 
   if (sheetName === 'Equipos') {
@@ -120,9 +122,9 @@ function normalizeSheetData(sheetName, rawArray) {
       id: row.id || `EQ-${index + 1}`,
       nombre: row.nombre || `Equipo ${index + 1}`,
       integrantes: row.integrantes || '',
-      pj: Number(row.pj || row.partidos_jugados || 0),
-      pg: Number(row.pg || row.partidos_ganados || 0),
-      torneos: Number(row.torneos || row.torneos_ganados || 0)
+      pj: 0,
+      pg: 0,
+      torneos: 0
     }));
   }
 

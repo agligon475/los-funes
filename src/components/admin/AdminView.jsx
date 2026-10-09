@@ -37,6 +37,7 @@ export default function AdminView() {
     partidos,
     refreshAll,
     setCurrentTournament,
+    handleResetAllStats,
     showToast
   } = useApp();
 
@@ -369,6 +370,18 @@ export default function AdminView() {
         >
           <RotateCcw className="w-4 h-4" />
           <span>Reiniciar y Limpiar Fixture Activo</span>
+        </button>
+
+        <button
+          onClick={() => {
+            if (confirm('¿Seguro que deseas limpiar y reiniciar a 0 todas las estadísticas de jugadores y equipos?')) {
+              handleResetAllStats();
+            }
+          }}
+          className="w-full py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-black flex items-center justify-center space-x-2 transition-all active:scale-95"
+        >
+          <RotateCcw className="w-4 h-4 text-amber-400" />
+          <span>🧹 Limpiar y Resetear Estadísticas a Cero</span>
         </button>
 
         {/* Matches list to delete if needed */}

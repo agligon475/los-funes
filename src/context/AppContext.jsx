@@ -108,11 +108,40 @@ export function AppProvider({ children }) {
         getSheet('Partidos')
       ]);
 
+      // Partidos limpios (sin registros demo)
+      const cleanPartidos = Array.isArray(partidosRes.data)
+        ? partidosRes.data.filter(p => !['PAR-002', 'PAR-001', 'P-101', 'P-102', 'P-103'].includes(p.id_partido || p.id))
+        : [];
+      setPartidos(cleanPartidos);
+
       if (Array.isArray(jugadoresRes.data)) {
-        setJugadores(jugadoresRes.data);
+        // Calcular estadísticas limpias basadas en los partidos disputados
+        const computedJugadores = jugadoresRes.data.map(j => {
+          const jMatches = cleanPartidos.filter(p => {
+            const nos = (p.equipo_nosotros || '').toLowerCase();
+            const ell = (p.equipo_ellos || '').toLowerCase();
+            const nm = (j.nombre || '').toLowerCase();
+            return nos.includes(nm) || ell.includes(nm);
+          });
+          const jWins = jMatches.filter(p => {
+            const nos = (p.equipo_nosotros || '').toLowerCase();
+            const ell = (p.equipo_ellos || '').toLowerCase();
+            const gan = (p.ganador || '').toLowerCase();
+            const nm = (j.nombre || '').toLowerCase();
+            return (nos.includes(nm) && gan === nos) || (ell.includes(nm) && gan === ell);
+          });
+          return {
+            ...j,
+            partidos_jugados: jMatches.length,
+            partidos_ganados: jWins.length,
+            torneos_ganados: 0
+          };
+        });
+
+        setJugadores(computedJugadores);
         setCurrentUser(curr => {
           if (!curr) return null;
-          const fresh = jugadoresRes.data.find(j => 
+          const fresh = computedJugadores.find(j => 
             j.id === curr.id || 
             (curr.email && j.email && j.email.toLowerCase() === curr.email.toLowerCase())
           );
@@ -124,8 +153,23 @@ export function AppProvider({ children }) {
           return curr;
         });
       }
-      if (Array.isArray(equiposRes.data)) setEquipos(equiposRes.data);
-      if (Array.isArray(partidosRes.data)) setPartidos(partidosRes.data);
+
+      if (Array.isArray(equiposRes.data)) {
+        const computedEquipos = equiposRes.data.map(eq => {
+          const eqMatches = cleanPartidos.filter(p => {
+            const eqName = (eq.nombre || '').toLowerCase();
+            return (p.equipo_nosotros || '').toLowerCase() === eqName || (p.equipo_ellos || '').toLowerCase() === eqName;
+          });
+          const eqWins = eqMatches.filter(p => (p.ganador || '').toLowerCase() === (eq.nombre || '').toLowerCase());
+          return {
+            ...eq,
+            pj: eqMatches.length,
+            pg: eqWins.length,
+            torneos: 0
+          };
+        });
+        setEquipos(computedEquipos);
+      }
 
       if (jugadoresRes.authRestricted) {
         setAuthRestricted(true);
@@ -329,7 +373,32 @@ export function AppProvider({ children }) {
     setSyncing(true);
     try {
       const res = await savePartido(partidoData);
-      setPartidos(res.newPartidos);
+      const updatedPartidos = [partidoData, ...partidos];
+      setPartidos(updatedPartidos);
+
+      // Re-calcular estadísticas al instante
+      setJugadores(prev => prev.map(j => {
+        const jMatches = updatedPartidos.filter(p => {
+          const nos = (p.equipo_nosotros || '').toLowerCase();
+          const ell = (p.equipo_ellos || '').toLowerCase();
+          const nm = (j.nombre || '').toLowerCase();
+          return nos.includes(nm) || ell.includes(nm);
+        });
+        const jWins = jMatches.filter(p => {
+          const nos = (p.equipo_nosotros || '').toLowerCase();
+          const ell = (p.equipo_ellos || '').toLowerCase();
+          const gan = (p.ganador || '').toLowerCase();
+          const nm = (j.nombre || '').toLowerCase();
+          return (nos.includes(nm) && gan === nos) || (ell.includes(nm) && gan === ell);
+        });
+        return {
+          ...j,
+          partidos_jugados: jMatches.length,
+          partidos_ganados: jWins.length,
+          torneos_ganados: 0
+        };
+      }));
+
       showToast('🏆 ¡Partido registrado en la planilla con éxito!', 'success');
 
       // Notificar al siguiente cruce
@@ -342,7 +411,31 @@ export function AppProvider({ children }) {
     } finally {
       setSyncing(false);
     }
-  }, [showToast, triggerNextMatchNotification]);
+  }, [partidos, showToast, triggerNextMatchNotification]);
+
+  // Limpiar y poner todas las estadísticas a cero
+  const handleResetAllStats = useCallback(() => {
+    setPartidos([]);
+    try {
+      localStorage.setItem('funes_partidos', JSON.stringify([]));
+      localStorage.removeItem('funes_active_tournament');
+    } catch (e) {}
+    handleSaveTournament(null);
+    setJugadores(prev => prev.map(j => ({
+      ...j,
+      partidos_jugados: 0,
+      partidos_ganados: 0,
+      torneos_ganados: 0
+    })));
+    setEquipos(prev => prev.map(eq => ({
+      ...eq,
+      pj: 0,
+      pg: 0,
+      torneos: 0
+    })));
+    setCurrentUser(curr => curr ? { ...curr, partidos_jugados: 0, partidos_ganados: 0, torneos_ganados: 0 } : null);
+    showToast('🧹 Estadísticas limpias: todo en 0', 'info');
+  }, [showToast, handleSaveTournament]);
 
   // Cargar partido desde el Fixture al Anotador
   const startMatchFromTournament = useCallback((matchData) => {
@@ -371,6 +464,7 @@ export function AppProvider({ children }) {
     handleLogin,
     handleLogout,
     handleUpdateJugador,
+    handleResetAllStats,
     currentTournament,
     setCurrentTournament: handleSaveTournament,
     matchCallAlert,
