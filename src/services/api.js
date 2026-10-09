@@ -1,10 +1,14 @@
 // Centralized API Service for Suite Truco Funes (Google Apps Script Backend)
 
-export const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxTIaI-9GGDUeUmrkuuewpkGnambQGn66wsAl-fGbnIe9iVKR3Fqb08Nsj8eAhtPxyR/exec';
+export const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwhtX9qjmAiaQu5tNCAuRojkpO1bWoDKY0Q_tRw1LyeDBPv8exIyWUf_y-uL1UbBNxm/exec';
 
 export function getApiUrl() {
   try {
     const custom = localStorage.getItem('funes_custom_api_url');
+    if (custom && custom.includes('AKfycbxTIaI-9GGDUeUmrkuuewpkGnambQGn66wsAl-fGbnIe9iVKR3Fqb08Nsj8eAhtPxyR')) {
+      localStorage.removeItem('funes_custom_api_url');
+      return DEFAULT_API_URL;
+    }
     return (custom && custom.trim()) ? custom.trim() : DEFAULT_API_URL;
   } catch {
     return DEFAULT_API_URL;

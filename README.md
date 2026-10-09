@@ -39,7 +39,7 @@ Aplicación web progresiva (PWA) mobile-first diseñada para gestionar juntadas 
 
 ## 📡 Integración Backend (Google Apps Script)
 
-- **URL de la API:** `https://script.google.com/macros/s/AKfycbxTIaI-9GGDUeUmrkuuewpkGnambQGn66wsAl-fGbnIe9iVKR3Fqb08Nsj8eAhtPxyR/exec`
+- **URL de la API:** `https://script.google.com/macros/s/AKfycbwhtX9qjmAiaQu5tNCAuRojkpO1bWoDKY0Q_tRw1LyeDBPv8exIyWUf_y-uL1UbBNxm/exec`
 - **Lectura:** `GET ?sheet=Jugadores|Equipos|Torneos|Partidos|Ranking`
 - **Escritura:** `POST` con encabezado `'Content-Type': 'text/plain;charset=utf-8'` (para evitar preflight CORS en Apps Script).
 - **Modo Offline & Cache:** La app incluye almacenamiento local `localStorage` de respaldo para garantizar funcionamiento ininterrumpido en las juntadas sin depender de caídas de conectividad.
